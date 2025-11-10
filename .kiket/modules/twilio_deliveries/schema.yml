@@ -1,0 +1,66 @@
+module: twilio_deliveries
+version: "1.0"
+description: "Twilio SMS/Voice delivery tracking"
+
+tables:
+  deliveries:
+    columns:
+      - name: id
+        type: bigint
+        primary_key: true
+        auto_increment: true
+      - name: message_sid
+        type: string
+        length: 255
+        unique: true
+      - name: recipient
+        type: string
+        length: 50
+        null: false
+      - name: message_type
+        type: string
+        length: 20
+        null: false
+      - name: body
+        type: text
+      - name: status
+        type: string
+        length: 50
+        null: false
+      - name: sent_at
+        type: timestamp
+      - name: delivered_at
+        type: timestamp
+      - name: failed_at
+        type: timestamp
+      - name: error_code
+        type: string
+        length: 50
+      - name: error_message
+        type: text
+      - name: project_id
+        type: string
+      - name: issue_id
+        type: string
+      - name: created_at
+        type: timestamp
+        null: false
+    indexes:
+      - name: idx_twilio_deliveries_status
+        columns: [status]
+      - name: idx_twilio_deliveries_sent
+        columns: [sent_at]
+      - name: idx_twilio_deliveries_type
+        columns: [message_type]
+
+permissions:
+  - role: user
+    tables:
+      deliveries:
+        - read
+  - role: admin
+    tables:
+      deliveries:
+        - read
+        - write
+        - delete

@@ -1,0 +1,35 @@
+name: "Twilio Delivery Overview"
+description: "SMS and voice delivery metrics"
+refresh_interval: 300
+
+sections:
+  - name: "Summary Metrics"
+    layout: "grid"
+    columns: 3
+    widgets:
+      - type: "metric"
+        title: "Total Sent (30d)"
+        query: "SELECT SUM(total_sent) as value FROM twilio_metrics_daily WHERE delivery_date >= CURRENT_DATE - INTERVAL '30 days'"
+      - type: "metric"
+        title: "Delivery Rate"
+        query: "SELECT ROUND(AVG(delivery_rate_pct), 1) || '%' as value FROM twilio_metrics_daily WHERE delivery_date >= CURRENT_DATE - INTERVAL '30 days'"
+      - type: "metric"
+        title: "Failed Messages"
+        query: "SELECT SUM(failed_count) as value FROM twilio_metrics_daily WHERE delivery_date >= CURRENT_DATE - INTERVAL '30 days'"
+
+  - name: "Delivery Trends"
+    layout: "full-width"
+    widgets:
+      - type: "line-chart"
+        title: "Daily Message Volume"
+        query: |
+          SELECT
+            delivery_date as date,
+            SUM(total_sent) as "Sent",
+            SUM(delivered_count) as "Delivered"
+          FROM twilio_metrics_daily
+          WHERE delivery_date >= CURRENT_DATE - INTERVAL '30 days'
+          GROUP BY delivery_date
+          ORDER BY delivery_date
+        x_axis: "date"
+        y_axis: ["Sent", "Delivered"]

@@ -1,0 +1,5 @@
+version: 2
+
+models:
+  - name: twilio_metrics_daily
+    description: "Daily Twilio delivery metrics"
