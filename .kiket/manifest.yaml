@@ -1,39 +1,73 @@
-manifestVersion: "1.1"
+model_version: "1.0"
 extension:
-  id: com.kiket.ext.twilio
+  id: twilio-notifications
   name: Twilio SMS & Voice Notifications
   version: 1.0.0
   description: Send SMS, MMS, and voice notifications using Twilio with built-in rate limiting and opt-in management
   author: Kiket Team
   homepage: https://github.com/kiket-dev/kiket-ext-twilio
+  delivery: http
+  callback:
+    url: ${EXTENSION_BASE_URL}
+    secret: env:KIKET_WEBHOOK_SECRET
+    timeout: 30000
+    required: true
+  activationEvents:
+    - issue.transitioned
+    - issue.assigned
+    - workflow.sla_breach
   permissions:
-    - read:issues
-    - read:users
-    - write:notifications
-  delivery:
-    type: http
-    callback:
-      url: ${EXTENSION_BASE_URL}
-      secret: env:KIKET_WEBHOOK_SECRET
-      timeout: 30000
-      required: true
-      secret_keys:
-        - TWILIO_ACCOUNT_SID
-        - TWILIO_AUTH_TOKEN
-        - TWILIO_PHONE_NUMBER
+    - issues:read
+    - users:read
+    - notifications:write
+  capabilities:
+    - notifications
+    - sms
+    - voice
+    - rate-limiting
+    - opt-in-management
   hooks:
     - event: issue.transitioned
-      version: v1
-      url: /webhooks/issue.transitioned
+      timeout: 5000
+      retries: 1
       description: Trigger notifications on issue state transitions
     - event: issue.assigned
-      version: v1
-      url: /webhooks/issue.assigned
+      timeout: 5000
+      retries: 1
       description: Notify users when assigned to issues
     - event: workflow.sla_breach
-      version: v1
-      url: /webhooks/sla.breach
+      timeout: 5000
+      retries: 2
       description: Alert on-call teams of SLA violations
+  contributes:
+    commands:
+      - command: twilio.sendSMS
+        title: Send SMS Notification
+        description: Send an SMS notification to a phone number
+        category: Notifications
+        icon: bi-phone
+        keywords: ["sms", "text", "phone", "notify"]
+        handler:
+          type: extension_event
+          event: twilio.sendSMS
+      - command: twilio.sendVoice
+        title: Make Voice Call
+        description: Initiate a voice call with text-to-speech message
+        category: Notifications
+        icon: bi-telephone
+        keywords: ["voice", "call", "phone", "notify"]
+        handler:
+          type: extension_event
+          event: twilio.sendVoice
+      - command: twilio.manageOptIn
+        title: Manage SMS Opt-In
+        description: View and update user opt-in status for SMS notifications
+        category: Settings
+        icon: bi-shield-check
+        keywords: ["opt-in", "consent", "sms", "preferences"]
+        handler:
+          type: extension_event
+          event: twilio.manageOptIn
   configuration:
     RATE_LIMIT_PER_MINUTE:
       type: integer
