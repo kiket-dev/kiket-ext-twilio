@@ -1,6 +1,6 @@
 model_version: "1.0"
 extension:
-  id: twilio-notifications
+  id: dev.kiket.ext.twilio
   name: Twilio SMS & Voice Notifications
   version: 1.0.0
   description: Send SMS, MMS, and voice notifications using Twilio with built-in rate limiting and opt-in management
