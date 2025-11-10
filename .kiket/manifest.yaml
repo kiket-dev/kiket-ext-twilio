@@ -1,0 +1,83 @@
+manifestVersion: "1.1"
+extension:
+  id: com.kiket.ext.twilio
+  name: Twilio SMS & Voice Notifications
+  version: 1.0.0
+  description: Send SMS, MMS, and voice notifications using Twilio with built-in rate limiting and opt-in management
+  author: Kiket Team
+  homepage: https://github.com/kiket-dev/kiket-ext-twilio
+  permissions:
+    - read:issues
+    - read:users
+    - write:notifications
+  delivery:
+    type: http
+    callback:
+      url: ${EXTENSION_BASE_URL}
+      secret: env:KIKET_WEBHOOK_SECRET
+      timeout: 30000
+      required: true
+      secret_keys:
+        - TWILIO_ACCOUNT_SID
+        - TWILIO_AUTH_TOKEN
+        - TWILIO_PHONE_NUMBER
+  hooks:
+    - event: issue.transitioned
+      version: v1
+      url: /webhooks/issue.transitioned
+      description: Trigger notifications on issue state transitions
+    - event: issue.assigned
+      version: v1
+      url: /webhooks/issue.assigned
+      description: Notify users when assigned to issues
+    - event: workflow.sla_breach
+      version: v1
+      url: /webhooks/sla.breach
+      description: Alert on-call teams of SLA violations
+  configuration:
+    RATE_LIMIT_PER_MINUTE:
+      type: integer
+      default: "10"
+      description: Maximum number of messages per minute
+    REQUIRE_OPT_IN:
+      type: boolean
+      default: "true"
+      description: Require user opt-in before sending notifications
+    DEFAULT_COUNTRY_CODE:
+      type: string
+      default: "US"
+      description: Default country code for phone number parsing
+    ENABLE_DELIVERY_TRACKING:
+      type: boolean
+      default: "true"
+      description: Enable delivery status tracking via webhooks
+    RETRY_ATTEMPTS:
+      type: integer
+      default: "3"
+      description: Number of retry attempts for failed deliveries
+    TIMEOUT_SECONDS:
+      type: integer
+      default: "30"
+      description: Request timeout in seconds
+
+deployment:
+  runtime: cloud_run
+  region: ${KIKET_REGION:-europe-west1}
+  image: ${TWILIO_IMAGE:-europe-west1-docker.pkg.dev/kiket-471917/kiket-extensions/kiket-ext-twilio:latest}
+  resources:
+    cpu: "1"
+    memory: "512Mi"
+    concurrency: 10
+  min_instances: 0
+  max_instances: 10
+  vpc:
+    connector: ${KIKET_VPC_CONNECTOR}
+    egress: all-traffic
+  secret_keys:
+    - KIKET_WEBHOOK_SECRET
+    - TWILIO_ACCOUNT_SID
+    - TWILIO_AUTH_TOKEN
+    - TWILIO_PHONE_NUMBER
+  env:
+    RACK_ENV: production
+    PORT: "9393"

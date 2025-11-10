@@ -1,0 +1,17 @@
+AllCops:
+  NewCops: enable
+  TargetRubyVersion: 3.2
+  Exclude:
+    - 'vendor/**/*'
+    - 'spec/fixtures/**/*'
+
+Style/Documentation:
+  Enabled: false
+
+Metrics/MethodLength:
+  Max: 25
+
+Metrics/BlockLength:
+  Exclude:
+    - 'spec/**/*'
+    - 'app.rb'

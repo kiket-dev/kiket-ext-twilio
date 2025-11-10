@@ -1,0 +1,169 @@
+{
+  "id": "twilio-notifications",
+  "name": "Twilio SMS & Voice",
+  "version": "1.0.0",
+  "description": "Send SMS and voice notifications using Twilio messaging API with rate limiting and opt-in management",
+  "author": "Kiket",
+  "license": "MIT",
+  "repository": "https://github.com/kiket-dev/kiket-ext-twilio",
+  "capabilities": {
+    "sms_delivery": true,
+    "voice_delivery": true,
+    "supports_mms": true,
+    "supports_rich_content": false,
+    "supports_opt_in_management": true,
+    "supports_rate_limiting": true,
+    "supports_scheduled_delivery": false,
+    "supports_delivery_tracking": true
+  },
+  "endpoints": [
+    {
+      "id": "send_sms",
+      "path": "/sms",
+      "method": "POST",
+      "description": "Send an SMS notification"
+    },
+    {
+      "id": "send_voice",
+      "path": "/voice",
+      "method": "POST",
+      "description": "Send a voice call notification"
+    },
+    {
+      "id": "send_mms",
+      "path": "/mms",
+      "method": "POST",
+      "description": "Send an MMS notification with media"
+    },
+    {
+      "id": "check_opt_in",
+      "path": "/opt-in/check",
+      "method": "POST",
+      "description": "Check if a phone number has opted in for notifications"
+    },
+    {
+      "id": "update_opt_in",
+      "path": "/opt-in/update",
+      "method": "POST",
+      "description": "Update opt-in status for a phone number"
+    },
+    {
+      "id": "validate_number",
+      "path": "/validate",
+      "method": "POST",
+      "description": "Validate phone number format and reachability"
+    },
+    {
+      "id": "health_check",
+      "path": "/health",
+      "method": "GET",
+      "description": "Health check endpoint"
+    }
+  ],
+  "configuration": {
+    "secrets": [
+      {
+        "key": "TWILIO_ACCOUNT_SID",
+        "description": "Twilio Account SID",
+        "required": true
+      },
+      {
+        "key": "TWILIO_AUTH_TOKEN",
+        "description": "Twilio Auth Token",
+        "required": true
+      },
+      {
+        "key": "TWILIO_PHONE_NUMBER",
+        "description": "Twilio phone number (E.164 format, e.g., +15551234567)",
+        "required": true
+      },
+      {
+        "key": "TWILIO_MESSAGING_SERVICE_SID",
+        "description": "Optional Twilio Messaging Service SID for advanced features",
+        "required": false
+      }
+    ],
+    "settings": [
+      {
+        "key": "rate_limit_per_minute",
+        "description": "Maximum SMS messages per minute",
+        "default": "10",
+        "type": "integer"
+      },
+      {
+        "key": "retry_attempts",
+        "description": "Number of retry attempts for failed deliveries",
+        "default": "3",
+        "type": "integer"
+      },
+      {
+        "key": "timeout_seconds",
+        "description": "Request timeout in seconds",
+        "default": "30",
+        "type": "integer"
+      },
+      {
+        "key": "require_opt_in",
+        "description": "Require opt-in before sending notifications",
+        "default": "true",
+        "type": "boolean"
+      },
+      {
+        "key": "opt_in_storage_method",
+        "description": "Method for storing opt-in status (memory, redis, database)",
+        "default": "memory",
+        "type": "string"
+      },
+      {
+        "key": "default_country_code",
+        "description": "Default country code for phone number parsing (e.g., US, GB)",
+        "default": "US",
+        "type": "string"
+      },
+      {
+        "key": "enable_delivery_tracking",
+        "description": "Track message delivery status via webhooks",
+        "default": "true",
+        "type": "boolean"
+      }
+    ]
+  },
+  "billing": {
+    "model": "usage",
+    "metrics": [
+      {
+        "id": "sms_sent",
+        "name": "SMS Sent",
+        "unit": "message",
+        "description": "Number of SMS messages successfully sent"
+      },
+      {
+        "id": "mms_sent",
+        "name": "MMS Sent",
+        "unit": "message",
+        "description": "Number of MMS messages successfully sent"
+      },
+      {
+        "id": "voice_calls",
+        "name": "Voice Calls",
+        "unit": "call",
+        "description": "Number of voice calls initiated"
+      }
+    ]
+  },
+  "webhooks": {
+    "status_callback": {
+      "path": "/webhooks/status",
+      "method": "POST",
+      "description": "Receives message delivery status updates from Twilio"
+    }
+  },
+  "tags": [
+    "notification",
+    "sms",
+    "voice",
+    "twilio",
+    "communication",
+    "mobile"
+  ]
+}
