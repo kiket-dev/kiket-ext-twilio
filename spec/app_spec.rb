@@ -278,7 +278,7 @@ RSpec.describe TwilioNotificationExtension do
       post "/mms", JSON.generate({
         to: "+15559876543",
         message: "Check this out",
-        media_urls: ["https://example.com/image.jpg"]
+        media_urls: [ "https://example.com/image.jpg" ]
       }), { "CONTENT_TYPE" => "application/json" }
 
       expect(last_response).to be_ok
@@ -288,7 +288,7 @@ RSpec.describe TwilioNotificationExtension do
 
       expect(messages_api).to have_received(:create).with(
         hash_including(
-          media_url: ["https://example.com/image.jpg"]
+          media_url: [ "https://example.com/image.jpg" ]
         )
       )
     end
