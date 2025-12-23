@@ -119,11 +119,11 @@ extension:
     issue_assigned_sms:
       type: template
       editor: template
-      language: handlebars
+      language: liquid
       label: Issue Assigned SMS
       description: SMS message sent when assigned to an issue
       default: |
-        [Kiket] You've been assigned to: {{issue.title}}. Priority: {{issue.priority}}. View: {{issue.url}}
+        [Kiket] You've been assigned to: {{ issue.title }}. Priority: {{ issue.priority }}. View: {{ issue.url }}
       variables:
         - name: issue
           type: object
@@ -139,11 +139,11 @@ extension:
     sla_breach_sms:
       type: template
       editor: template
-      language: handlebars
+      language: liquid
       label: SLA Breach SMS
       description: Urgent SMS for SLA violations
       default: |
-        [URGENT] SLA Breach: {{issue.title}}. Policy: {{sla.policy_name}}. Exceeded by {{sla.exceeded_by}}. Action required!
+        [URGENT] SLA Breach: {{ issue.title }}. Policy: {{ sla.policy_name }}. Exceeded by {{ sla.exceeded_by }}. Action required!
       variables:
         - name: issue
           type: object
@@ -163,11 +163,11 @@ extension:
     transition_sms:
       type: template
       editor: template
-      language: handlebars
+      language: liquid
       label: Transition Notification SMS
       description: SMS for issue state changes
       default: |
-        [Kiket] Issue "{{issue.title}}" moved from {{transition.from}} to {{transition.to}}.
+        [Kiket] Issue "{{ issue.title }}" moved from {{ transition.from }} to {{ transition.to }}.
       variables:
         - name: issue
           type: object
