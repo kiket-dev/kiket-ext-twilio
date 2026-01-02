@@ -1,0 +1,17 @@
+title: SMS Alert on SLA Breach
+description: Send urgent SMS when critical SLA policies are breached
+
+automations:
+  - name: sms_sla_alert
+    trigger:
+      event: workflow.sla_breach
+      conditions:
+        - field: sla.severity
+          operator: eq
+          value: "critical"
+    actions:
+      - extension: dev.kiket.ext.twilio
+        command: twilio.sendSms
+        params:
+          to: "{{ issue.assignee.phone }}"
+          message: "URGENT: SLA breach on {{ issue.title }}"
