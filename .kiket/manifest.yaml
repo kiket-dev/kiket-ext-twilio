@@ -182,25 +182,4 @@ extension:
         max_length: 160
   assets:
     icon: ./public/icon.svg
-
-deployment:
-  runtime: cloud_run
-  region: ${KIKET_REGION:-europe-west1}
-  image: ${TWILIO_IMAGE:-europe-west1-docker.pkg.dev/kiket-471917/kiket-extensions/kiket-ext-twilio:latest}
-  resources:
-    cpu: "1"
-    memory: "512Mi"
-    concurrency: 10
-  min_instances: 0
-  max_instances: 10
-  vpc:
-    connector: ${KIKET_VPC_CONNECTOR}
-    egress: all-traffic
-  secret_keys:
-    - KIKET_WEBHOOK_SECRET
-    - TWILIO_ACCOUNT_SID
-    - TWILIO_AUTH_TOKEN
-    - TWILIO_PHONE_NUMBER
-  env:
-    RACK_ENV: production
-    PORT: "9393"
+  hosting: internal
