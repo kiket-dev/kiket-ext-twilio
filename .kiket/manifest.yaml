@@ -9,7 +9,7 @@ extension:
   delivery: http
   callback:
     url: ${EXTENSION_BASE_URL}
-    secret: env:KIKET_WEBHOOK_SECRET
+    secret: env.KIKET_WEBHOOK_SECRET
     timeout: 30000
     required: true
   activationEvents:
@@ -180,6 +180,10 @@ extension:
             - { name: to, type: string }
       validation:
         max_length: 160
+  custom_data:
+    permissions:
+      - module: dev.kiket.ext.twilio.deliveries
+        operations: [read, write]
   assets:
     icon: ./public/icon.svg
   hosting: internal

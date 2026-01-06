@@ -1,4 +1,4 @@
-module: twilio_deliveries
+module: dev.kiket.ext.twilio.deliveries
 version: "1.0"
 description: "Twilio SMS/Voice delivery tracking"
 
