@@ -72,22 +72,25 @@ extension:
           type: extension_event
           event: twilio.manageOptIn
   configuration:
-    # Authentication
+    # Authentication - org-wide credentials (shared across all projects)
     TWILIO_ACCOUNT_SID:
       type: string
       secret: true
       required: true
+      scope: extension
       label: Account SID
       description: Twilio Account SID
     TWILIO_AUTH_TOKEN:
       type: string
       secret: true
       required: true
+      scope: extension
       label: Auth Token
       description: Twilio Auth Token
     TWILIO_PHONE_NUMBER:
       type: string
       required: true
+      scope: extension
       label: Phone Number
       description: Twilio phone number for sending SMS (e.g., +1234567890)
     # Rate Limiting
