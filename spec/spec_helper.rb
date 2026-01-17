@@ -1,20 +1,37 @@
 # frozen_string_literal: true
 
 ENV["RACK_ENV"] = "test"
-ENV["TWILIO_ACCOUNT_SID"] = "test_account_sid"
-ENV["TWILIO_AUTH_TOKEN"] = "test_auth_token"
-ENV["TWILIO_PHONE_NUMBER"] = "+15551234567"
+
+require "bundler/setup"
+Bundler.require(:default, :test)
 
 require "rspec"
-require "rack/test"
 require "webmock/rspec"
-require "vcr"
 
 require_relative "../app"
 
-RSpec.configure do |config|
-  config.include Rack::Test::Methods
+# Mock context for SDK handler testing
+def build_context(overrides = {})
+  events_logged = []
 
+  default_secrets = {
+    "TWILIO_ACCOUNT_SID" => "test_account_sid",
+    "TWILIO_AUTH_TOKEN" => "test_auth_token",
+    "TWILIO_PHONE_NUMBER" => "+15551234567",
+    "DEFAULT_COUNTRY_CODE" => "US",
+    "REQUIRE_OPT_IN" => "true",
+    "ENABLE_DELIVERY_TRACKING" => "false"
+  }
+
+  {
+    auth: { org_id: "test-org-123", user_id: "test-user-456" },
+    secret: ->(key) { default_secrets[key] || ENV[key] },
+    endpoints: double("endpoints", log_event: ->(event, data) { events_logged << { event: event, data: data } }),
+    events_logged: events_logged
+  }.merge(overrides)
+end
+
+RSpec.configure do |config|
   config.expect_with :rspec do |expectations|
     expectations.include_chain_clauses_in_custom_matcher_descriptions = true
   end
@@ -27,15 +44,9 @@ RSpec.configure do |config|
   config.filter_run_when_matching :focus
   config.example_status_persistence_file_path = "spec/examples.txt"
   config.disable_monkey_patching!
-  config.warnings = true
   config.order = :random
   Kernel.srand config.seed
-end
 
-VCR.configure do |config|
-  config.cassette_library_dir = "spec/fixtures/vcr_cassettes"
-  config.hook_into :webmock
-  config.configure_rspec_metadata!
-  config.filter_sensitive_data("<TWILIO_ACCOUNT_SID>") { ENV["TWILIO_ACCOUNT_SID"] }
-  config.filter_sensitive_data("<TWILIO_AUTH_TOKEN>") { ENV["TWILIO_AUTH_TOKEN"] }
+  # Configure WebMock
+  WebMock.disable_net_connect!(allow_localhost: true)
 end

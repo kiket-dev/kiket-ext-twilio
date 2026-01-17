@@ -65,7 +65,6 @@ The extension will be available at `http://localhost:9393`
 - `OPT_IN_STORAGE_METHOD`: Storage method for opt-in status (default: memory)
 - `DEFAULT_COUNTRY_CODE`: Default country code for phone parsing (default: US)
 - `ENABLE_DELIVERY_TRACKING`: Enable delivery status tracking (default: true)
-- `TWILIO_STATUS_CALLBACK_URL`: Public URL for status webhooks
 
 ## API Endpoints
 
@@ -325,13 +324,40 @@ Error responses include detailed messages:
 }
 ```
 
+## Delivery Status Tracking
+
+The extension uses Kiket's **External Webhook Routing** to receive delivery status callbacks from Twilio. When `ENABLE_DELIVERY_TRACKING` is enabled (default), SMS and voice calls include a status callback URL.
+
+### How It Works
+
+1. When you send a message, Twilio is configured to send status updates to your installation's webhook URL
+2. Kiket receives the callback and forwards it to this extension with a runtime token
+3. The extension validates the Twilio signature and logs the delivery status
+
+### Webhook URL
+
+Each installation gets a unique webhook URL automatically:
+```
+https://kiket.dev/webhooks/ext/{webhook_token}/status_callback
+```
+
+You can find this URL in:
+- Extension configuration page in Kiket
+- Via API: `GET /api/v1/ext/webhook_url`
+
+### Status Events
+
+The extension logs the following status events:
+- **SMS**: `queued`, `sent`, `delivered`, `undelivered`, `failed`
+- **Voice**: `initiated`, `ringing`, `answered`, `completed`
+
 ## Security Considerations
 
 1. **Credentials**: Never commit `.env` file - use environment variables
 2. **Opt-in Compliance**: Ensure users have consented before sending notifications
 3. **Rate Limiting**: Configure appropriate limits to prevent abuse
-4. **Webhook Validation**: In production, validate Twilio webhook signatures
-5. **HTTPS**: Always use HTTPS for webhook endpoints in production
+4. **Webhook Validation**: Twilio webhook signatures are automatically validated using your Auth Token
+5. **HTTPS**: External webhook URLs are always HTTPS
 
 ## Deployment
 

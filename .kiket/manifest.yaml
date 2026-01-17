@@ -17,6 +17,7 @@ extension:
     - issue.transitioned
     - issue.assigned
     - workflow.sla_breach
+    - external.webhook.status_callback
   permissions:
     - issues:read
     - users:read
@@ -27,6 +28,7 @@ extension:
     - voice
     - rate-limiting
     - opt-in-management
+    - external-webhook
   hooks:
     - event: issue.transitioned
       template: transition_sms
@@ -43,6 +45,10 @@ extension:
       timeout: 5000
       retries: 2
       description: Alert on-call teams of SLA violations
+    - event: external.webhook.status_callback
+      timeout: 10000
+      retries: 0
+      description: Receive delivery status callbacks from Twilio
   contributes:
     commands:
       - command: twilio.sendSMS

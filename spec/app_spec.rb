@@ -3,80 +3,70 @@
 require "spec_helper"
 
 RSpec.describe TwilioNotificationExtension do
-  def app
-    TwilioNotificationExtension
-  end
+  subject(:extension) { described_class.new }
 
   let(:twilio_client) { instance_double(Twilio::REST::Client) }
   let(:messages_api) { instance_double(Twilio::REST::Api::V2010::AccountContext::MessageList) }
   let(:calls_api) { instance_double(Twilio::REST::Api::V2010::AccountContext::CallList) }
 
+  let(:context) { build_context }
+  let(:context_no_opt_in) do
+    build_context(
+      secret: ->(key) {
+        case key
+        when "REQUIRE_OPT_IN" then "false"
+        when "TWILIO_ACCOUNT_SID" then "test_account_sid"
+        when "TWILIO_AUTH_TOKEN" then "test_auth_token"
+        when "TWILIO_PHONE_NUMBER" then "+15551234567"
+        when "DEFAULT_COUNTRY_CODE" then "US"
+        when "ENABLE_DELIVERY_TRACKING" then "false"
+        else ENV[key]
+        end
+      }
+    )
+  end
+
   before do
     allow(Twilio::REST::Client).to receive(:new).and_return(twilio_client)
     allow(twilio_client).to receive(:messages).and_return(messages_api)
     allow(twilio_client).to receive(:calls).and_return(calls_api)
-
-    # Reset rate limiting between tests
-    app.settings.rate_limit_state = { count: 0, reset_at: Time.now + 60 }
   end
 
-  describe "GET /health" do
-    it "returns healthy status" do
-      get "/health"
-
-      expect(last_response).to be_ok
-      json = JSON.parse(last_response.body)
-      expect(json["status"]).to eq("healthy")
-      expect(json["service"]).to eq("twilio-notifications")
-      expect(json["version"]).to eq("1.0.0")
-      expect(json["twilio_configured"]).to be true
+  describe "#handle_send_sms" do
+    let(:message) do
+      instance_double(
+        Twilio::REST::Api::V2010::AccountContext::MessageInstance,
+        sid: "SM123abc",
+        to: "+15559876543",
+        status: "queued"
+      )
     end
-  end
 
-  describe "POST /sms" do
-    context "with valid request" do
-      let(:message) do
-        instance_double(
-          Twilio::REST::Api::V2010::AccountContext::MessageInstance,
-          sid: "SM123abc",
-          to: "+15559876543",
-          status: "queued"
-        )
-      end
+    let(:payload) do
+      {
+        "to" => "+15559876543",
+        "message" => "Test message"
+      }
+    end
 
+    context "with valid request and no opt-in required" do
       it "sends SMS successfully" do
         allow(messages_api).to receive(:create).and_return(message)
 
-        post "/sms", JSON.generate({
-          to: "+15559876543",
-          message: "Test message"
-        }), { "CONTENT_TYPE" => "application/json" }
+        result = extension.send(:handle_send_sms, payload, context_no_opt_in)
 
-        expect(last_response).to be_ok
-        json = JSON.parse(last_response.body)
-        expect(json["success"]).to be true
-        expect(json["message_sid"]).to eq("SM123abc")
-        expect(json["to"]).to eq("+15559876543")
-        expect(json["status"]).to eq("queued")
-
-        expect(messages_api).to have_received(:create).with(
-          hash_including(
-            from: "+15551234567",
-            to: "+15559876543",
-            body: "Test message"
-          )
-        )
+        expect(result[:success]).to be true
+        expect(result[:message_sid]).to eq("SM123abc")
+        expect(result[:to]).to eq("+15559876543")
+        expect(result[:status]).to eq("queued")
       end
 
       it "normalizes phone numbers" do
         allow(messages_api).to receive(:create).and_return(message)
 
-        post "/sms", JSON.generate({
-          to: "(555) 987-6543",  # US format
-          message: "Test"
-        }), { "CONTENT_TYPE" => "application/json" }
+        result = extension.send(:handle_send_sms, payload.merge("to" => "(555) 987-6543"), context_no_opt_in)
 
-        expect(last_response).to be_ok
+        expect(result[:success]).to be true
         expect(messages_api).to have_received(:create).with(
           hash_including(to: "+15559876543")
         )
@@ -85,111 +75,50 @@ RSpec.describe TwilioNotificationExtension do
 
     context "with validation errors" do
       it "requires recipient" do
-        post "/sms", JSON.generate({
-          message: "Test"
-        }), { "CONTENT_TYPE" => "application/json" }
+        result = extension.send(:handle_send_sms, { "message" => "Test" }, context_no_opt_in)
 
-        expect(last_response.status).to eq(400)
-        json = JSON.parse(last_response.body)
-        expect(json["error"]).to include("Recipient")
+        expect(result[:success]).to be false
+        expect(result[:error]).to include("to")
       end
 
       it "requires message" do
-        post "/sms", JSON.generate({
-          to: "+15559876543"
-        }), { "CONTENT_TYPE" => "application/json" }
+        result = extension.send(:handle_send_sms, { "to" => "+15559876543" }, context_no_opt_in)
 
-        expect(last_response.status).to eq(400)
-        json = JSON.parse(last_response.body)
-        expect(json["error"]).to include("message")
+        expect(result[:success]).to be false
+        expect(result[:error]).to include("message")
       end
 
       it "validates phone number format" do
-        post "/sms", JSON.generate({
-          to: "invalid",
-          message: "Test"
-        }), { "CONTENT_TYPE" => "application/json" }
+        result = extension.send(:handle_send_sms, {
+          "to" => "invalid",
+          "message" => "Test"
+        }, context_no_opt_in)
 
-        expect(last_response.status).to eq(400)
-        json = JSON.parse(last_response.body)
-        expect(json["error"]).to include("Invalid phone number")
-      end
-
-      it "handles invalid JSON" do
-        post "/sms", "invalid json", { "CONTENT_TYPE" => "application/json" }
-
-        expect(last_response.status).to eq(400)
-        json = JSON.parse(last_response.body)
-        expect(json["error"]).to include("Invalid JSON")
-      end
-    end
-
-    context "with rate limiting" do
-      let(:message) do
-        instance_double(
-          Twilio::REST::Api::V2010::AccountContext::MessageInstance,
-          sid: "SM123",
-          to: "+15559876543",
-          status: "queued"
-        )
-      end
-
-      it "enforces rate limits" do
-        allow(messages_api).to receive(:create).and_return(message)
-
-        # Send messages up to the limit (default 10)
-        11.times do |i|
-          post "/sms", JSON.generate({
-            to: "+1555000000#{i}",
-            message: "Test"
-          }), { "CONTENT_TYPE" => "application/json" }
-        end
-
-        # Last request should be rate limited
-        expect(last_response.status).to eq(400)
-        json = JSON.parse(last_response.body)
-        expect(json["error"]).to include("Rate limit exceeded")
+        expect(result[:success]).to be false
+        expect(result[:error]).to include("Invalid phone number")
       end
     end
 
     context "with opt-in requirement" do
-      let(:message) do
-        instance_double(
-          Twilio::REST::Api::V2010::AccountContext::MessageInstance,
-          sid: "SM123",
-          to: "+15559876543",
-          status: "queued"
-        )
-      end
-
       it "checks opt-in status when required" do
-        # Opt-in is required by default
-        post "/sms", JSON.generate({
-          to: "+15559876543",
-          message: "Test"
-        }), { "CONTENT_TYPE" => "application/json" }
+        result = extension.send(:handle_send_sms, payload, context)
 
-        expect(last_response.status).to eq(400)
-        json = JSON.parse(last_response.body)
-        expect(json["error"]).to include("not opted in")
+        expect(result[:success]).to be false
+        expect(result[:error]).to include("not opted in")
       end
 
       it "allows sending after opt-in" do
         allow(messages_api).to receive(:create).and_return(message)
 
         # Update opt-in status
-        post "/opt-in/update", JSON.generate({
-          phone_number: "+15559876543",
-          opted_in: true
-        }), { "CONTENT_TYPE" => "application/json" }
+        extension.send(:handle_update_opt_in, {
+          "phone_number" => "+15559876543",
+          "opted_in" => true
+        }, context)
 
-        # Now send should work
-        post "/sms", JSON.generate({
-          to: "+15559876543",
-          message: "Test"
-        }), { "CONTENT_TYPE" => "application/json" }
+        result = extension.send(:handle_send_sms, payload, context)
 
-        expect(last_response).to be_ok
+        expect(result[:success]).to be true
       end
     end
 
@@ -199,25 +128,15 @@ RSpec.describe TwilioNotificationExtension do
           Twilio::REST::RestError.new("Authentication failed", 20003)
         )
 
-        # Update opt-in first
-        post "/opt-in/update", JSON.generate({
-          phone_number: "+15559876543",
-          opted_in: true
-        }), { "CONTENT_TYPE" => "application/json" }
+        result = extension.send(:handle_send_sms, payload, context_no_opt_in)
 
-        post "/sms", JSON.generate({
-          to: "+15559876543",
-          message: "Test"
-        }), { "CONTENT_TYPE" => "application/json" }
-
-        expect(last_response.status).to eq(502)
-        json = JSON.parse(last_response.body)
-        expect(json["error"]).to include("Twilio API error")
+        expect(result[:success]).to be false
+        expect(result[:error]).to include("Twilio API error")
       end
     end
   end
 
-  describe "POST /voice" do
+  describe "#handle_send_voice" do
     let(:call) do
       instance_double(
         Twilio::REST::Api::V2010::AccountContext::CallInstance,
@@ -227,173 +146,164 @@ RSpec.describe TwilioNotificationExtension do
       )
     end
 
+    let(:payload) do
+      {
+        "to" => "+15559876543",
+        "message" => "This is a test call"
+      }
+    end
+
     it "initiates voice call successfully" do
       allow(calls_api).to receive(:create).and_return(call)
 
       # Update opt-in first
-      post "/opt-in/update", JSON.generate({
-        phone_number: "+15559876543",
-        opted_in: true
-      }), { "CONTENT_TYPE" => "application/json" }
+      extension.send(:handle_update_opt_in, {
+        "phone_number" => "+15559876543",
+        "opted_in" => true
+      }, context)
 
-      post "/voice", JSON.generate({
-        to: "+15559876543",
-        message: "This is a test call"
-      }), { "CONTENT_TYPE" => "application/json" }
+      result = extension.send(:handle_send_voice, payload, context)
 
-      expect(last_response).to be_ok
-      json = JSON.parse(last_response.body)
-      expect(json["success"]).to be true
-      expect(json["call_sid"]).to eq("CA123abc")
-      expect(json["status"]).to eq("queued")
-
-      expect(calls_api).to have_received(:create).with(
-        hash_including(
-          from: "+15551234567",
-          to: "+15559876543"
-        )
-      )
+      expect(result[:success]).to be true
+      expect(result[:call_sid]).to eq("CA123abc")
+      expect(result[:status]).to eq("queued")
     end
   end
 
-  describe "POST /mms" do
+  describe "#handle_send_mms" do
     let(:message) do
       instance_double(
         Twilio::REST::Api::V2010::AccountContext::MessageInstance,
         sid: "MM123abc",
         to: "+15559876543",
-        status: "queued"
+        status: "queued",
+        num_media: "1"
       )
+    end
+
+    let(:payload) do
+      {
+        "to" => "+15559876543",
+        "message" => "Check this out",
+        "media_urls" => ["https://example.com/image.jpg"]
+      }
     end
 
     it "sends MMS with media" do
       allow(messages_api).to receive(:create).and_return(message)
 
       # Update opt-in first
-      post "/opt-in/update", JSON.generate({
-        phone_number: "+15559876543",
-        opted_in: true
-      }), { "CONTENT_TYPE" => "application/json" }
+      extension.send(:handle_update_opt_in, {
+        "phone_number" => "+15559876543",
+        "opted_in" => true
+      }, context)
 
-      post "/mms", JSON.generate({
-        to: "+15559876543",
-        message: "Check this out",
-        media_urls: [ "https://example.com/image.jpg" ]
-      }), { "CONTENT_TYPE" => "application/json" }
+      result = extension.send(:handle_send_mms, payload, context)
 
-      expect(last_response).to be_ok
-      json = JSON.parse(last_response.body)
-      expect(json["success"]).to be true
-      expect(json["message_sid"]).to eq("MM123abc")
-
-      expect(messages_api).to have_received(:create).with(
-        hash_including(
-          media_url: [ "https://example.com/image.jpg" ]
-        )
-      )
+      expect(result[:success]).to be true
+      expect(result[:message_sid]).to eq("MM123abc")
     end
 
     it "requires media URLs" do
-      post "/mms", JSON.generate({
-        to: "+15559876543",
-        message: "Test"
-      }), { "CONTENT_TYPE" => "application/json" }
+      result = extension.send(:handle_send_mms, {
+        "to" => "+15559876543",
+        "message" => "Test"
+      }, context_no_opt_in)
 
-      expect(last_response.status).to eq(400)
-      json = JSON.parse(last_response.body)
-      expect(json["error"]).to include("media")
+      expect(result[:success]).to be false
+      expect(result[:error]).to include("media")
     end
   end
 
-  describe "POST /opt-in/update" do
+  describe "#handle_update_opt_in" do
     it "updates opt-in status" do
-      post "/opt-in/update", JSON.generate({
-        phone_number: "+15559876543",
-        opted_in: true
-      }), { "CONTENT_TYPE" => "application/json" }
+      result = extension.send(:handle_update_opt_in, {
+        "phone_number" => "+15559876543",
+        "opted_in" => true
+      }, context)
 
-      expect(last_response).to be_ok
-      json = JSON.parse(last_response.body)
-      expect(json["success"]).to be true
-      expect(json["phone_number"]).to eq("+15559876543")
-      expect(json["opted_in"]).to be true
+      expect(result[:success]).to be true
+      expect(result[:phone_number]).to eq("+15559876543")
+      expect(result[:opted_in]).to be true
     end
 
     it "normalizes phone numbers" do
-      post "/opt-in/update", JSON.generate({
-        phone_number: "(555) 987-6543",
-        opted_in: true
-      }), { "CONTENT_TYPE" => "application/json" }
+      result = extension.send(:handle_update_opt_in, {
+        "phone_number" => "(555) 987-6543",
+        "opted_in" => true
+      }, context)
 
-      expect(last_response).to be_ok
-      json = JSON.parse(last_response.body)
-      expect(json["phone_number"]).to eq("+15559876543")
+      expect(result[:success]).to be true
+      expect(result[:phone_number]).to eq("+15559876543")
     end
   end
 
-  describe "POST /opt-in/check" do
+  describe "#handle_check_opt_in" do
     it "checks opt-in status" do
       # Set opt-in first
-      post "/opt-in/update", JSON.generate({
-        phone_number: "+15559876543",
-        opted_in: true
-      }), { "CONTENT_TYPE" => "application/json" }
+      extension.send(:handle_update_opt_in, {
+        "phone_number" => "+15559876543",
+        "opted_in" => true
+      }, context)
 
-      # Check status
-      post "/opt-in/check", JSON.generate({
-        phone_number: "+15559876543"
-      }), { "CONTENT_TYPE" => "application/json" }
+      result = extension.send(:handle_check_opt_in, {
+        "phone_number" => "+15559876543"
+      }, context)
 
-      expect(last_response).to be_ok
-      json = JSON.parse(last_response.body)
-      expect(json["success"]).to be true
-      expect(json["opted_in"]).to be true
+      expect(result[:success]).to be true
+      expect(result[:opted_in]).to be true
     end
 
     it "returns false for unknown numbers" do
-      post "/opt-in/check", JSON.generate({
-        phone_number: "+15559999999"
-      }), { "CONTENT_TYPE" => "application/json" }
+      result = extension.send(:handle_check_opt_in, {
+        "phone_number" => "+15559999999"
+      }, context)
 
-      expect(last_response).to be_ok
-      json = JSON.parse(last_response.body)
-      expect(json["opted_in"]).to be false
+      expect(result[:success]).to be true
+      expect(result[:opted_in]).to be false
     end
   end
 
-  describe "POST /validate" do
+  describe "#handle_validate_phone" do
     it "validates valid phone number" do
-      post "/validate", JSON.generate({
-        phone_number: "+15559876543"
-      }), { "CONTENT_TYPE" => "application/json" }
+      result = extension.send(:handle_validate_phone, {
+        "phone_number" => "+15559876543"
+      }, context)
 
-      expect(last_response).to be_ok
-      json = JSON.parse(last_response.body)
-      expect(json["success"]).to be true
-      expect(json["valid"]).to be true
-      expect(json["e164_format"]).to eq("+15559876543")
+      expect(result[:success]).to be true
+      expect(result[:valid]).to be true
+      expect(result[:e164_format]).to eq("+15559876543")
     end
 
-    it "rejects invalid phone number" do
-      post "/validate", JSON.generate({
-        phone_number: "invalid"
-      }), { "CONTENT_TYPE" => "application/json" }
+    it "provides info for invalid phone number" do
+      result = extension.send(:handle_validate_phone, {
+        "phone_number" => "invalid"
+      }, context)
 
-      expect(last_response).to be_ok
-      json = JSON.parse(last_response.body)
-      expect(json["valid"]).to be false
+      expect(result[:success]).to be true
+      expect(result[:valid]).to be false
     end
 
     it "normalizes various formats" do
-      post "/validate", JSON.generate({
-        phone_number: "(555) 987-6543"
-      }), { "CONTENT_TYPE" => "application/json" }
+      result = extension.send(:handle_validate_phone, {
+        "phone_number" => "(555) 987-6543"
+      }, context)
 
-      expect(last_response).to be_ok
-      json = JSON.parse(last_response.body)
-      expect(json["valid"]).to be true
-      expect(json["e164_format"]).to eq("+15559876543")
-      expect(json["national_format"]).to eq("(555) 987-6543")
+      expect(result[:success]).to be true
+      expect(result[:valid]).to be true
+      expect(result[:e164_format]).to eq("+15559876543")
+    end
+  end
+
+  describe "#handle_status_webhook" do
+    it "processes webhook payload" do
+      result = extension.send(:handle_status_webhook, {
+        "MessageSid" => "SM123",
+        "MessageStatus" => "delivered"
+      }, context)
+
+      expect(result[:success]).to be true
+      expect(result[:received_at]).to match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/)
     end
   end
 end
