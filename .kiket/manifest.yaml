@@ -190,6 +190,71 @@ extension:
             - { name: to, type: string }
       validation:
         max_length: 160
+  # Setup Wizard - guides users through extension configuration
+  setup:
+    # Step 1: Twilio Credentials
+    - secrets:
+        title: Connect to Twilio
+        description: Enter your Twilio account credentials
+        required: true
+        scope: extension
+        help_url: https://www.twilio.com/docs/iam/credentials/api
+        collect:
+          - TWILIO_ACCOUNT_SID
+          - TWILIO_AUTH_TOKEN
+
+    # Step 2: Phone Number Configuration
+    - configure:
+        title: Configure Phone Number
+        description: Set up your Twilio phone number for sending SMS
+        scope: extension
+        fields:
+          - key: TWILIO_PHONE_NUMBER
+            type: text
+            label: Twilio Phone Number
+            description: Your Twilio phone number for sending SMS (e.g., +1234567890)
+            placeholder: "+1234567890"
+            required: true
+
+    # Step 3: Test Connection
+    - test:
+        title: Test Connection
+        description: Verify your Twilio credentials are working correctly
+        action: twilio.validateCredentials
+        successMessage: Successfully connected to Twilio!
+        required: false
+
+    # Step 4: Webhook URL Info (for delivery status callbacks)
+    - info:
+        title: Setup Complete
+        description: Your Twilio integration is ready
+        scope: installation
+        content: |
+          ## You're all set!
+
+          Your Twilio integration is now configured. Here's what happens next:
+
+          - **SMS notifications** will be sent from your configured phone number
+          - **Delivery status** will be tracked via webhooks (if enabled)
+
+          ### Webhook URL for Status Callbacks
+
+          Configure this URL in your Twilio console to receive delivery status updates.
+          You can find the webhook URL in the extension configuration page after setup.
+
+          ### Tips
+
+          - Use E.164 format for phone numbers (+1234567890)
+          - Enable delivery tracking to monitor message status
+          - Set up opt-in management for compliance
+        links:
+          - label: Twilio Console
+            url: https://console.twilio.com/
+            icon: box-arrow-up-right
+          - label: Kiket Documentation
+            url: https://docs.kiket.dev/extensions/twilio
+            icon: book
+
   custom_data:
     permissions:
       - module: dev.kiket.ext.twilio.deliveries
