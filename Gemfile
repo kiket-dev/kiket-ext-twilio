@@ -18,4 +18,5 @@ group :development, :test do
   gem "vcr", "~> 6.3"
   gem "dotenv", "~> 3.1"
   gem "rubocop", "~> 1.69", require: false
+  gem "rubocop-rspec", "~> 3.0", require: false
 end
