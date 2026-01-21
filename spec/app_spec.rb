@@ -17,7 +17,7 @@ RSpec.describe TwilioNotificationExtension do
         when 'REQUIRE_OPT_IN' then 'false'
         when 'TWILIO_ACCOUNT_SID' then 'test_account_sid'
         when 'TWILIO_AUTH_TOKEN' then 'test_auth_token'
-        when 'TWILIO_PHONE_NUMBER' then '+15551234567'
+        when 'TWILIO_PHONE_NUMBER' then '+12025550123'
         when 'DEFAULT_COUNTRY_CODE' then 'US'
         when 'ENABLE_DELIVERY_TRACKING' then 'false'
         else ENV.fetch(key, nil)
@@ -36,14 +36,14 @@ RSpec.describe TwilioNotificationExtension do
       instance_double(
         Twilio::REST::Api::V2010::AccountContext::MessageInstance,
         sid: 'SM123abc',
-        to: '+15559876543',
+        to: '+12025550199',
         status: 'queued'
       )
     end
 
     let(:payload) do
       {
-        'to' => '+15559876543',
+        'to' => '+12025550199',
         'message' => 'Test message'
       }
     end
@@ -56,18 +56,18 @@ RSpec.describe TwilioNotificationExtension do
 
         expect(result[:success]).to be true
         expect(result[:message_sid]).to eq('SM123abc')
-        expect(result[:to]).to eq('+15559876543')
+        expect(result[:to]).to eq('+12025550199')
         expect(result[:status]).to eq('queued')
       end
 
       it 'normalizes phone numbers' do
         allow(messages_api).to receive(:create).and_return(message)
 
-        result = extension.send(:handle_send_sms, payload.merge('to' => '(555) 987-6543'), context_no_opt_in)
+        result = extension.send(:handle_send_sms, payload.merge('to' => '(202) 555-0199'), context_no_opt_in)
 
         expect(result[:success]).to be true
         expect(messages_api).to have_received(:create).with(
-          hash_including(to: '+15559876543')
+          hash_including(to: '+12025550199')
         )
       end
     end
@@ -81,7 +81,7 @@ RSpec.describe TwilioNotificationExtension do
       end
 
       it 'requires message' do
-        result = extension.send(:handle_send_sms, { 'to' => '+15559876543' }, context_no_opt_in)
+        result = extension.send(:handle_send_sms, { 'to' => '+12025550199' }, context_no_opt_in)
 
         expect(result[:success]).to be false
         expect(result[:error]).to include('message')
@@ -111,7 +111,7 @@ RSpec.describe TwilioNotificationExtension do
 
         # Update opt-in status
         extension.send(:handle_update_opt_in, {
-                         'phone_number' => '+15559876543',
+                         'phone_number' => '+12025550199',
                          'opted_in' => true
                        }, context)
 
@@ -123,8 +123,14 @@ RSpec.describe TwilioNotificationExtension do
 
     context 'with Twilio API errors' do
       it 'handles Twilio errors gracefully' do
+        # Create a mock response for RestError (twilio-ruby 7.x: initialize(message, response))
+        error_response = double(
+          'response',
+          status_code: 401,
+          body: { 'message' => 'Authentication failed', 'code' => 20_003 }
+        )
         allow(messages_api).to receive(:create).and_raise(
-          Twilio::REST::RestError.new('Authentication failed', 20_003)
+          Twilio::REST::RestError.new('Authentication failed', error_response)
         )
 
         result = extension.send(:handle_send_sms, payload, context_no_opt_in)
@@ -140,14 +146,14 @@ RSpec.describe TwilioNotificationExtension do
       instance_double(
         Twilio::REST::Api::V2010::AccountContext::CallInstance,
         sid: 'CA123abc',
-        to: '+15559876543',
+        to: '+12025550199',
         status: 'queued'
       )
     end
 
     let(:payload) do
       {
-        'to' => '+15559876543',
+        'to' => '+12025550199',
         'message' => 'This is a test call'
       }
     end
@@ -157,7 +163,7 @@ RSpec.describe TwilioNotificationExtension do
 
       # Update opt-in first
       extension.send(:handle_update_opt_in, {
-                       'phone_number' => '+15559876543',
+                       'phone_number' => '+12025550199',
                        'opted_in' => true
                      }, context)
 
@@ -174,7 +180,7 @@ RSpec.describe TwilioNotificationExtension do
       instance_double(
         Twilio::REST::Api::V2010::AccountContext::MessageInstance,
         sid: 'MM123abc',
-        to: '+15559876543',
+        to: '+12025550199',
         status: 'queued',
         num_media: '1'
       )
@@ -182,7 +188,7 @@ RSpec.describe TwilioNotificationExtension do
 
     let(:payload) do
       {
-        'to' => '+15559876543',
+        'to' => '+12025550199',
         'message' => 'Check this out',
         'media_urls' => ['https://example.com/image.jpg']
       }
@@ -193,7 +199,7 @@ RSpec.describe TwilioNotificationExtension do
 
       # Update opt-in first
       extension.send(:handle_update_opt_in, {
-                       'phone_number' => '+15559876543',
+                       'phone_number' => '+12025550199',
                        'opted_in' => true
                      }, context)
 
@@ -205,7 +211,7 @@ RSpec.describe TwilioNotificationExtension do
 
     it 'requires media URLs' do
       result = extension.send(:handle_send_mms, {
-                                'to' => '+15559876543',
+                                'to' => '+12025550199',
                                 'message' => 'Test'
                               }, context_no_opt_in)
 
@@ -217,23 +223,23 @@ RSpec.describe TwilioNotificationExtension do
   describe '#handle_update_opt_in' do
     it 'updates opt-in status' do
       result = extension.send(:handle_update_opt_in, {
-                                'phone_number' => '+15559876543',
+                                'phone_number' => '+12025550199',
                                 'opted_in' => true
                               }, context)
 
       expect(result[:success]).to be true
-      expect(result[:phone_number]).to eq('+15559876543')
+      expect(result[:phone_number]).to eq('+12025550199')
       expect(result[:opted_in]).to be true
     end
 
     it 'normalizes phone numbers' do
       result = extension.send(:handle_update_opt_in, {
-                                'phone_number' => '(555) 987-6543',
+                                'phone_number' => '(202) 555-0199',
                                 'opted_in' => true
                               }, context)
 
       expect(result[:success]).to be true
-      expect(result[:phone_number]).to eq('+15559876543')
+      expect(result[:phone_number]).to eq('+12025550199')
     end
   end
 
@@ -241,12 +247,12 @@ RSpec.describe TwilioNotificationExtension do
     it 'checks opt-in status' do
       # Set opt-in first
       extension.send(:handle_update_opt_in, {
-                       'phone_number' => '+15559876543',
+                       'phone_number' => '+12025550199',
                        'opted_in' => true
                      }, context)
 
       result = extension.send(:handle_check_opt_in, {
-                                'phone_number' => '+15559876543'
+                                'phone_number' => '+12025550199'
                               }, context)
 
       expect(result[:success]).to be true
@@ -255,7 +261,7 @@ RSpec.describe TwilioNotificationExtension do
 
     it 'returns false for unknown numbers' do
       result = extension.send(:handle_check_opt_in, {
-                                'phone_number' => '+15559999999'
+                                'phone_number' => '+12025550198'
                               }, context)
 
       expect(result[:success]).to be true
@@ -266,12 +272,12 @@ RSpec.describe TwilioNotificationExtension do
   describe '#handle_validate_phone' do
     it 'validates valid phone number' do
       result = extension.send(:handle_validate_phone, {
-                                'phone_number' => '+15559876543'
+                                'phone_number' => '+12025550199'
                               }, context)
 
       expect(result[:success]).to be true
       expect(result[:valid]).to be true
-      expect(result[:e164_format]).to eq('+15559876543')
+      expect(result[:e164_format]).to eq('+12025550199')
     end
 
     it 'provides info for invalid phone number' do
@@ -285,12 +291,12 @@ RSpec.describe TwilioNotificationExtension do
 
     it 'normalizes various formats' do
       result = extension.send(:handle_validate_phone, {
-                                'phone_number' => '(555) 987-6543'
+                                'phone_number' => '(202) 555-0199'
                               }, context)
 
       expect(result[:success]).to be true
       expect(result[:valid]).to be true
-      expect(result[:e164_format]).to eq('+15559876543')
+      expect(result[:e164_format]).to eq('+12025550199')
     end
   end
 
