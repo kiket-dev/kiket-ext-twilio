@@ -79,6 +79,25 @@ extension:
         handler:
           type: extension_event
           event: twilio.manageOptIn
+    workflow_actions:
+      - id: send_sms
+        name: Send SMS
+        icon: bi-phone
+        description: Send an SMS notification via Twilio
+        handler:
+          type: extension_event
+          event: twilio.workflowAction.sendSms
+        parameters:
+          - key: to
+            type: string
+            label: Phone Number
+            placeholder: "+1234567890 or {{issue.assignee_phone}}"
+            required: true
+          - key: message
+            type: string
+            label: Message
+            placeholder: "Alert: {{issue.title}} needs attention"
+            required: true
   configuration:
     # Authentication - org-wide credentials (shared across all projects)
     TWILIO_ACCOUNT_SID:
