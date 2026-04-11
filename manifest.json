@@ -158,12 +158,5 @@
       "description": "Receives message delivery status updates from Twilio"
     }
   },
-  "tags": [
-    "notification",
-    "sms",
-    "voice",
-    "twilio",
-    "communication",
-    "mobile"
-  ]
+  "tags": ["notification", "sms", "voice", "twilio", "communication", "mobile"]
 }
